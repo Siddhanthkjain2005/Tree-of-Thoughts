@@ -228,9 +228,10 @@ export default function Dashboard() {
 
   const fetchData = useCallback(async () => {
     try {
+      const headers = { 'ngrok-skip-browser-warning': 'true' };
       const [sumRes, modRes] = await Promise.all([
-        fetch(`${API}/summary`).then(r => r.json()),
-        fetch(`${API}/models`).then(r => r.json()),
+        fetch(`${API}/summary`, { headers }).then(r => r.json()),
+        fetch(`${API}/models`, { headers }).then(r => r.json()),
       ]);
       setSummary(sumRes);
       setModels(modRes.models);
@@ -245,9 +246,10 @@ export default function Dashboard() {
     if (!selectedModel) return;
     const { provider, model } = selectedModel;
     const enc = encodeURIComponent(model);
+    const headers = { 'ngrok-skip-browser-warning': 'true' };
     Promise.all([
-      fetch(`${API}/model/${provider}/${enc}/methods`).then(r => r.json()),
-      fetch(`${API}/model/${provider}/${enc}/sessions`).then(r => r.json()),
+      fetch(`${API}/model/${provider}/${enc}/methods`, { headers }).then(r => r.json()),
+      fetch(`${API}/model/${provider}/${enc}/sessions`, { headers }).then(r => r.json()),
     ]).then(([m, s]) => {
       setModelMethods(m.methods);
       setModelSessions(s.sessions);
@@ -257,7 +259,8 @@ export default function Dashboard() {
 
   useEffect(() => {
     if (selectedSession) {
-      fetch(`${API}/sessions/${selectedSession.id}/summary`).then(r => r.json()).then(d => setSessionSizeSummary(d.size_summary || []));
+      const headers = { 'ngrok-skip-browser-warning': 'true' };
+      fetch(`${API}/sessions/${selectedSession.id}/summary`, { headers }).then(r => r.json()).then(d => setSessionSizeSummary(d.size_summary || []));
     } else { setSessionSizeSummary([]); }
   }, [selectedSession]);
 
@@ -265,11 +268,12 @@ export default function Dashboard() {
     e.stopPropagation();
     if (!confirm("Delete this session?")) return;
     try {
-      await fetch(`${API}/sessions/${id}`, { method: 'DELETE' });
+      await fetch(`${API}/sessions/${id}`, { method: 'DELETE', headers: { 'ngrok-skip-browser-warning': 'true' } });
       fetchData();
       if (selectedModel) {
         const { provider, model } = selectedModel;
-        fetch(`${API}/model/${provider}/${encodeURIComponent(model)}/sessions`).then(r => r.json()).then(d => setModelSessions(d.sessions));
+        const headers = { 'ngrok-skip-browser-warning': 'true' };
+        fetch(`${API}/model/${provider}/${encodeURIComponent(model)}/sessions`, { headers }).then(r => r.json()).then(d => setModelSessions(d.sessions));
       }
       if (selectedSession?.id === id) setSelectedSession(null);
     } catch (err) { console.error("Delete failed", err); }

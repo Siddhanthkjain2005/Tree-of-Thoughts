@@ -2,7 +2,7 @@
 Simple Flask app to view experiment/demo results stored in SQLite.
 
 Run:
-    python -m webapp.server
+    python3 -m webapp.server
 Then open http://localhost:5000/
 """
 from flask import Flask, jsonify, send_from_directory, request
@@ -11,7 +11,7 @@ from flask_cors import CORS
 from core import storage
 
 app = Flask(__name__, static_folder="static", static_url_path="")
-CORS(app)
+CORS(app, resources={r"/api/*": {"origins": "*"}}, allow_headers=["Content-Type", "Authorization", "ngrok-skip-browser-warning"])
 
 
 @app.route("/api/summary")
