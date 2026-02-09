@@ -1,0 +1,102 @@
+def run_demo(provider: str, model: str):
+    """Run a quick demo comparing all methods."""
+    print("=" * 60)
+    print("🎯 DEMO: Linear vs DET Comparison")
+    print("=" * 60)
+
+    from core.llm_client import get_llm_client
+    from core.scorer import ResponseScorer
+    from core import storage
+    from prompts.templates import (
+        get_linear_prompt,
+        get_det_prompt,
+        get_det_prompt_v2,
+        get_det_prompt_v3,
+        get_det_prompt_v4,
+    )
+    from data.equations import get_equations
+
+    llm = get_llm_client(provider, model)
+    scorer = ResponseScorer()
+
+    storage.init_db()
+    session_id = storage.create_session(
+        mode="demo",
+        provider=provider,
+        model=model,
+        config={"size": 3, "methods": ["linear", "det", "det_v2", "det_v3", "det_v4"]},
+    )
+
+    eq_data = get_equations(3)
+    equations = eq_data["equations"]
+    variables = eq_data["variables"]
+
+    print("\n📋 Equations:")
+    for eq in equations:
+        print(f"   {eq}")
+
+    methods = [
+        ("linear", "LINEAR", get_linear_prompt),
+        ("det", "DET v1", get_det_prompt),
+        ("det_v2", "DET v2", get_det_prompt_v2),
+        ("det_v3", "DET v3", get_det_prompt_v3),
+        ("det_v4", "DET v4 (R)", get_det_prompt_v4),
+    ]
+
+    results = []
+
+    for method_key, name, prompt_fn in methods:
+        print(f"\n{'─' * 50}")
+        print(f"📝 {name}:")
+        print("─" * 50)
+
+        prompt = prompt_fn(equations)
+        response, tokens, time_taken = llm.generate(prompt)
+        score_result = scorer.score(response, variables)
+
+        print(f"Response preview: {response[:300]}...")
+
+        total_score = score_result["total"]
+        is_success = score_result["success"]
+        status = "✅" if is_success else "❌"
+
+        print(f"\n📊 Score: {total_score:.1f}/100 ({status})")
+        print(
+            f"   Variables found: "
+            f"{score_result['variables_found']}/{len(variables)}"
+        )
+        print(f"   Assignments: {score_result['assignments']}")
+        print(f"   Tokens: {tokens} | Time: {time_taken:.2f}s")
+
+        results.append((name, total_score, is_success))
+
+        storage.insert_trial(
+            session_id=session_id,
+            size=3,
+            method=method_key,
+            trial_num=len(results),
+            result={
+                "score": total_score,
+                "completeness": score_result["completeness"],
+                "consistency": score_result["consistency"],
+                "reasoning": score_result["reasoning"],
+                "success": is_success,
+                "tokens": tokens,
+                "time": time_taken,
+                "response": response[:500],
+                "variables_found": score_result["variables_found"],
+                "assignments": score_result["assignments"],
+            },
+        )
+
+    # Summary
+    print("\n" + "=" * 50)
+    print("📊 DEMO SUMMARY")
+    print("=" * 50)
+
+    for name, score, success in results:
+        status = "✅" if success else "❌"
+        print(f"  {name:<12}: {score:5.1f}/100 {status}")
+
+    best = max(results, key=lambda x: x[1])
+    print(f"\n🏆 Best: {best[0]} with {best[1]:.1f} points")

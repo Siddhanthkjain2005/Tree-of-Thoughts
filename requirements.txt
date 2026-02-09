@@ -1,0 +1,10 @@
+groq
+openai
+python-dotenv
+matplotlib
+pandas
+seaborn
+pandas>=2.0.0
+matplotlib>=3.7.0
+networkx>=3.1
+flask
