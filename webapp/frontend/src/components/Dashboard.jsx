@@ -14,15 +14,15 @@ import {
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 
-const API = '/api';
+const API = (import.meta.env.VITE_API_BASE_URL || '') + '/api';
 
 const C = {
-  neon:    { h: '#818cf8', r: '129,140,248' },   // brighter indigo
-  cyan:    { h: '#22d3ee', r: '34,211,238' },     // brighter cyan
+  neon: { h: '#818cf8', r: '129,140,248' },   // brighter indigo
+  cyan: { h: '#22d3ee', r: '34,211,238' },     // brighter cyan
   emerald: { h: '#34d399', r: '52,211,153' },     // brighter green
-  amber:   { h: '#fbbf24', r: '251,191,36' },     // brighter amber
-  rose:    { h: '#fb7185', r: '251,113,133' },     // brighter rose
-  violet:  { h: '#a78bfa', r: '167,139,250' },     // brighter violet
+  amber: { h: '#fbbf24', r: '251,191,36' },     // brighter amber
+  rose: { h: '#fb7185', r: '251,113,133' },     // brighter rose
+  violet: { h: '#a78bfa', r: '167,139,250' },     // brighter violet
 };
 
 /* ================================================================
