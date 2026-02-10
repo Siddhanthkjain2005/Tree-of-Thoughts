@@ -218,13 +218,44 @@ function TiltCard({ children, className, style, ...props }) {
 export default function Dashboard() {
   const [summary, setSummary] = useState(null);
   const [models, setModels] = useState([]);
-  const [selectedModel, setSelectedModel] = useState(null);
+  const [selectedModel, setSelectedModel] = useState(() => {
+    const saved = localStorage.getItem('selectedModel');
+    return saved ? JSON.parse(saved) : null;
+  });
   const [modelMethods, setModelMethods] = useState([]);
   const [modelSessions, setModelSessions] = useState([]);
   const [modelSizeSummary, setModelSizeSummary] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [selectedSession, setSelectedSession] = useState(null);
+  const [selectedSession, setSelectedSession] = useState(() => {
+    const saved = localStorage.getItem('selectedSession');
+    return saved ? JSON.parse(saved) : null;
+  });
   const [sessionSizeSummary, setSessionSizeSummary] = useState([]);
+
+  // Persistence effects
+  useEffect(() => {
+    if (selectedModel) localStorage.setItem('selectedModel', JSON.stringify(selectedModel));
+  }, [selectedModel]);
+
+  useEffect(() => {
+    if (selectedSession) localStorage.setItem('selectedSession', JSON.stringify(selectedSession));
+    else localStorage.removeItem('selectedSession');
+  }, [selectedSession]);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      localStorage.setItem('dashboardScrollY', window.scrollY);
+    };
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  useEffect(() => {
+    const savedScrollY = localStorage.getItem('dashboardScrollY');
+    if (savedScrollY && !loading) {
+      window.scrollTo(0, parseInt(savedScrollY));
+    }
+  }, [loading]);
 
   const fetchData = useCallback(async () => {
     try {
@@ -237,10 +268,14 @@ export default function Dashboard() {
       setModels(modRes.models);
       if (modRes.models.length > 0 && !selectedModel) setSelectedModel(modRes.models[0]);
     } catch (err) { console.error("Fetch failed", err); }
-    finally { setLoading(false); }
-  }, [selectedModel]);
+    finally { if (loading) setLoading(false); }
+  }, [selectedModel, loading]);
 
-  useEffect(() => { fetchData(); }, []);
+  useEffect(() => {
+    fetchData();
+    const interval = setInterval(() => fetchData(), 10000); // Poll every 10s
+    return () => clearInterval(interval);
+  }, [fetchData]);
 
   useEffect(() => {
     if (!selectedModel) return;
