@@ -438,8 +438,8 @@ export default function Dashboard() {
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 animate-fade-up" style={{ animationDelay: '0.2s' }}>
                 <HeroStat label="Neural Models" val={models.length} icon={<BrainCircuit size={24} />} color="neon" i={0} />
                 <HeroStat label="Experiments" val={summary?.sessions?.length || 0} icon={<Layers size={24} />} color="cyan" i={1} />
-                <HeroStat label="Cognition Score" val={`${avgScore.toFixed(1)}%`} icon={<Target size={24} />} color="emerald" i={2} ring />
-                <HeroStat label="Success Rate" val={`${avgSuccess.toFixed(1)}%`} icon={<Shield size={24} />} color="amber" i={3} ring />
+                <HeroStat label="Cognition Score" val={`${(avgScore || 0).toFixed(1)}%`} icon={<Target size={24} />} color="emerald" i={2} ring />
+                <HeroStat label="Success Rate" val={`${(avgSuccess || 0).toFixed(1)}%`} icon={<Shield size={24} />} color="amber" i={3} ring />
               </div>
             )}
 
@@ -530,9 +530,9 @@ export default function Dashboard() {
                     {modelAgg && (
                       <div className="grid grid-cols-2 lg:grid-cols-4 gap-5">
                         <MetricCard label="Total Trials" val={modelAgg.total_trials} icon={<Zap size={20} />} color="neon" />
-                        <MetricCard label="Avg Score" val={`${modelAgg.avg_score.toFixed(1)}%`} icon={<Award size={20} />} color="cyan" />
-                        <MetricCard label="Success Rate" val={`${modelAgg.success_rate.toFixed(1)}%`} icon={<Activity size={20} />} color="emerald" />
-                        <MetricCard label="Avg Tokens" val={Math.round(modelAgg.avg_tokens)} icon={<Database size={20} />} color="amber" />
+                        <MetricCard label="Avg Score" val={`${(modelAgg.avg_score || 0).toFixed(1)}%`} icon={<Award size={20} />} color="cyan" />
+                        <MetricCard label="Success Rate" val={`${(modelAgg.success_rate || 0).toFixed(1)}%`} icon={<Activity size={20} />} color="emerald" />
+                        <MetricCard label="Avg Tokens" val={Math.round(modelAgg.avg_tokens || 0)} icon={<Database size={20} />} color="amber" />
                       </div>
                     )}
 
@@ -581,9 +581,9 @@ export default function Dashboard() {
                                 <td className="px-7 py-5">
                                   <div className="flex items-center justify-center gap-3">
                                     <div className="w-28 h-2.5 rounded-full overflow-hidden" style={{ background: 'rgba(129,140,248,0.08)' }}>
-                                      <div className="h-full rounded-full transition-all duration-1000" style={{ width: `${s.success_rate}%`, background: `linear-gradient(90deg, ${C.neon.h}, ${C.cyan.h})`, boxShadow: `0 0 16px rgba(${C.neon.r}, 0.4)` }} />
+                                      <div className="h-full rounded-full transition-all duration-1000" style={{ width: `${s.success_rate || 0}%`, background: `linear-gradient(90deg, ${C.neon.h}, ${C.cyan.h})`, boxShadow: `0 0 16px rgba(${C.neon.r}, 0.4)` }} />
                                     </div>
-                                    <span className="text-sm font-mono font-bold w-14 text-right" style={{ color: '#e0e0f0' }}>{s.success_rate.toFixed(0)}%</span>
+                                    <span className="text-sm font-mono font-bold w-14 text-right" style={{ color: '#e0e0f0' }}>{(s.success_rate || 0).toFixed(0)}%</span>
                                   </div>
                                 </td>
                                 <td className="px-7 py-5">
@@ -861,12 +861,12 @@ function MetricCard({ label, val, icon, color }) {
 
 function Badge({ v, color }) {
   const c = C[color];
-  if (!v) return <span className="text-sm font-mono" style={{ color: '#5050a0' }}>--</span>;
+  if (v === undefined || v === null) return <span className="text-sm font-mono" style={{ color: '#5050a0' }}>--</span>;
   return (
     <span className="inline-flex items-center px-4 py-2 rounded-xl text-sm font-mono font-bold"
       style={{ color: c.h, background: `rgba(${c.r}, 0.08)`, border: `1px solid rgba(${c.r}, 0.12)`, boxShadow: `0 0 16px rgba(${c.r}, 0.1)` }}
     >
-      {v.toFixed(1)}%
+      {Number(v).toFixed(1)}%
     </span>
   );
 }
