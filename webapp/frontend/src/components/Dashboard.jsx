@@ -232,6 +232,14 @@ export default function Dashboard() {
   });
   const [sessionSizeSummary, setSessionSizeSummary] = useState([]);
 
+  // Refs to access current state inside the stable polling callback
+  const selectedModelRef = useRef(selectedModel);
+  const selectedSessionRef = useRef(selectedSession);
+  const initialLoadDone = useRef(false);
+
+  useEffect(() => { selectedModelRef.current = selectedModel; }, [selectedModel]);
+  useEffect(() => { selectedSessionRef.current = selectedSession; }, [selectedSession]);
+
   // Persistence effects
   useEffect(() => {
     if (selectedModel) localStorage.setItem('selectedModel', JSON.stringify(selectedModel));
@@ -243,73 +251,85 @@ export default function Dashboard() {
   }, [selectedSession]);
 
   useEffect(() => {
-    const handleScroll = () => {
-      localStorage.setItem('dashboardScrollY', window.scrollY);
-    };
-    window.addEventListener('scroll', handleScroll);
+    const handleScroll = () => localStorage.setItem('dashboardScrollY', window.scrollY);
+    window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
   useEffect(() => {
     const savedScrollY = localStorage.getItem('dashboardScrollY');
-    if (savedScrollY && !loading) {
-      window.scrollTo(0, parseInt(savedScrollY));
-    }
+    if (savedScrollY && !loading) window.scrollTo(0, parseInt(savedScrollY));
   }, [loading]);
 
-  const fetchData = useCallback(async () => {
+  // ─── Stable fetch helpers (no state in deps → never recreated) ───
+  const headers = useMemo(() => ({ 'ngrok-skip-browser-warning': 'true' }), []);
+
+  const fetchGlobal = useCallback(async () => {
     try {
-      const headers = { 'ngrok-skip-browser-warning': 'true' };
       const [sumRes, modRes] = await Promise.all([
         fetch(`${API}/summary`, { headers }).then(r => r.json()),
         fetch(`${API}/models`, { headers }).then(r => r.json()),
       ]);
       setSummary(sumRes);
       setModels(modRes.models);
-      if (modRes.models.length > 0 && !selectedModel) setSelectedModel(modRes.models[0]);
+      if (modRes.models.length > 0 && !selectedModelRef.current) {
+        setSelectedModel(modRes.models[0]);
+      }
     } catch (err) { console.error("Fetch failed", err); }
-    finally { if (loading) setLoading(false); }
-  }, [selectedModel, loading]);
+    finally {
+      if (!initialLoadDone.current) { initialLoadDone.current = true; setLoading(false); }
+    }
+  }, [headers]);
 
-  useEffect(() => {
-    fetchData();
-    const interval = setInterval(() => fetchData(), 10000); // Poll every 10s
-    return () => clearInterval(interval);
-  }, [fetchData]);
-
-  useEffect(() => {
-    if (!selectedModel) return;
-    const { provider, model } = selectedModel;
+  const fetchModelData = useCallback(async (mod) => {
+    if (!mod) return;
+    const { provider, model } = mod;
     const enc = encodeURIComponent(model);
-    const headers = { 'ngrok-skip-browser-warning': 'true' };
-    Promise.all([
-      fetch(`${API}/model/${provider}/${enc}/methods`, { headers }).then(r => r.json()),
-      fetch(`${API}/model/${provider}/${enc}/sessions`, { headers }).then(r => r.json()),
-    ]).then(([m, s]) => {
+    try {
+      const [m, s] = await Promise.all([
+        fetch(`${API}/model/${provider}/${enc}/methods`, { headers }).then(r => r.json()),
+        fetch(`${API}/model/${provider}/${enc}/sessions`, { headers }).then(r => r.json()),
+      ]);
       setModelMethods(m.methods);
       setModelSessions(s.sessions);
       setModelSizeSummary(s.size_summary || []);
-    });
-  }, [selectedModel]);
+    } catch (err) { console.error("Model fetch failed", err); }
+  }, [headers]);
 
+  const fetchSessionData = useCallback(async (sess) => {
+    if (!sess) { setSessionSizeSummary([]); return; }
+    try {
+      const d = await fetch(`${API}/sessions/${sess.id}/summary`, { headers }).then(r => r.json());
+      setSessionSizeSummary(d.size_summary || []);
+    } catch (err) { console.error("Session fetch failed", err); }
+  }, [headers]);
+
+  // ─── Initial load ───
   useEffect(() => {
-    if (selectedSession) {
-      const headers = { 'ngrok-skip-browser-warning': 'true' };
-      fetch(`${API}/sessions/${selectedSession.id}/summary`, { headers }).then(r => r.json()).then(d => setSessionSizeSummary(d.size_summary || []));
-    } else { setSessionSizeSummary([]); }
-  }, [selectedSession]);
+    fetchGlobal();
+  }, [fetchGlobal]);
+
+  // ─── Polling: one stable interval, refreshes everything ───
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      await fetchGlobal();
+      await fetchModelData(selectedModelRef.current);
+      if (selectedSessionRef.current) await fetchSessionData(selectedSessionRef.current);
+    }, 10000);
+    return () => clearInterval(interval);
+  }, [fetchGlobal, fetchModelData, fetchSessionData]);
+
+  // ─── React to model/session selection changes ───
+  useEffect(() => { fetchModelData(selectedModel); }, [selectedModel, fetchModelData]);
+  useEffect(() => { fetchSessionData(selectedSession); }, [selectedSession, fetchSessionData]);
 
   const handleDelete = async (e, id) => {
     e.stopPropagation();
     if (!confirm("Delete this session?")) return;
     try {
-      await fetch(`${API}/sessions/${id}`, { method: 'DELETE', headers: { 'ngrok-skip-browser-warning': 'true' } });
-      fetchData();
-      if (selectedModel) {
-        const { provider, model } = selectedModel;
-        const headers = { 'ngrok-skip-browser-warning': 'true' };
-        fetch(`${API}/model/${provider}/${encodeURIComponent(model)}/sessions`, { headers }).then(r => r.json()).then(d => setModelSessions(d.sessions));
-      }
+      await fetch(`${API}/sessions/${id}`, { method: 'DELETE', headers });
+      await fetchGlobal();
+      if (selectedModel) await fetchModelData(selectedModel);
       if (selectedSession?.id === id) setSelectedSession(null);
     } catch (err) { console.error("Delete failed", err); }
   };
